@@ -80,7 +80,7 @@ const getLyrics = {
             .then(res => {
                 const ret = res.map(r => {
                     if (r.status !== 'resolved') return null;
-                    else return res.response;
+                    else return r.response;
                 }).filter(r => r);
                 return Promise.resolve(ret);
             })

@@ -58,7 +58,7 @@ const getOne = function (artist, song) {
         })
 };
 
-export const reflect = (p, type, id) => p.then(
+const reflect = (p, type, id) => p.then(
     response => ({
         response: response,
         status: 'resolved',
@@ -73,7 +73,7 @@ export const reflect = (p, type, id) => p.then(
     })
 );
 
-module.exports = {
+const getLyrics = {
     get: getOne,
     getBatch: function (arr) {
         return Promise.all(arr.map((t, i) => reflect(getOne(t.artist, t.song), 'song', i)))
@@ -86,3 +86,6 @@ module.exports = {
             })
     }
 };
+
+module.exports = getLyrics;
+module.exports.default = getLyrics;

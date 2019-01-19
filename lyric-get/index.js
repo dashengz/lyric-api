@@ -1,78 +1,58 @@
-var request    = require('request');
-var cheerio    = require('cheerio');
-var _          = require('underscore');
+const request = require('request-promise-native');
+const cheerio = require('cheerio');
+const _ = require('underscore');
 
 
 module.exports = {
-	get: function(artist, song, callback) {
+    get: function (artist, song) {
+        return request('http://lyrics.wikia.com/wiki/' + artist + ':' + song)
+            .then(html => {
+                const $ = cheerio.load(html);
+                $('script').remove();
+                let lyrics = ($('.lyricbox').html());
 
-		var lyrics = "";
+                /**
+                 * Override default underscore escape map
+                 */
+                const escapeMap = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&apos;',
+                    '`': '&#x60;',
+                    '': '\n'
+                };
 
-		url = 'http://lyrics.wikia.com/wiki/' + artist + ':' + song;
+                const unescapeMap = _.invert(escapeMap);
+                const createEscaper = function (map) {
+                    const escaper = function (match) {
+                        return map[match];
+                    };
 
+                    const source = '(?:' + _.keys(map).join('|') + ')';
+                    const testRegexp = RegExp(source);
+                    const replaceRegexp = RegExp(source, 'g');
+                    return function (string) {
+                        string = string == null ? '' : '' + string;
+                        return testRegexp.test(string) ? string.replace(replaceRegexp, escaper) : string;
+                    };
+                };
+                _.escape = createEscaper(escapeMap);
+                _.unescape = createEscaper(unescapeMap);
 
-		request(url, function(error, response, html) {
-	        if(error)
-	        {
-	       		callback(error, null);
-	        }
-	        else
-	        {
-		        
-		        var $ = cheerio.load(html);
-		        $('script').remove();
-		        var lyrics = ($('.lyricbox').html());
+                // replace html codes with punctuation
+                lyrics = _.unescape(lyrics);
+                // remove everything between brackets
+                lyrics = lyrics.replace(/\[[^\]]*\]/g, '');
+                // remove html comments
+                lyrics = lyrics.replace(/(<!--)[^-]*-->/g, '');
+                // replace newlines
+                lyrics = lyrics.replace(/<br>/g, '\n');
+                // remove all tags
+                lyrics = lyrics.replace(/<[^>]*>/g, '');
 
-				/**
-				 * Override default underscore escape map
-				 */
-				var escapeMap = {
-				  '&': '&amp;',
-				  '<': '&lt;',
-				  '>': '&gt;',
-				  '"': '&quot;',
-				  "'": '&#x27;',
-				  "'": '&apos;',
-				  '`': '&#x60;',
-				  '' : '\n'
-				};
-
-				var unescapeMap = _.invert(escapeMap);
-				var createEscaper = function(map) {
-				  var escaper = function(match) {
-				    return map[match];
-				  };
-
-				  var source = '(?:' + _.keys(map).join('|') + ')';
-				  var testRegexp = RegExp(source);
-				  var replaceRegexp = RegExp(source, 'g');
-				  return function(string) {
-				    string = string == null ? '' : '' + string;
-				    return testRegexp.test(string) ? string.replace(replaceRegexp, escaper) : string;
-				  };
-				};
-				_.escape = createEscaper(escapeMap);
-				_.unescape = createEscaper(unescapeMap);
-
-				// replace html codes with punctuation
-				lyrics = _.unescape(lyrics);
-				// remove everything between brackets
-				lyrics = lyrics.replace(/\[[^\]]*\]/g, '');
-				// remove html comments
-				lyrics = lyrics.replace(/(<!--)[^-]*-->/g, '');
-				// replace newlines
-				lyrics = lyrics.replace(/<br>/g, '\n');
-				// remove all tags
-				lyrics = lyrics.replace(/<[^>]*>/g, '');
-
-				//console.log(lyrics);
-		        if(lyrics != ""){
-		        	callback(null, lyrics);
-		        }
-		        else{
-		        	callback("not found", null);
-		        }
-		    }
-		});
-	}
-}
+                return Promise.resolve(lyrics);
+            })
+    }
+};
